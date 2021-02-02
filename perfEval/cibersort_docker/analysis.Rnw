@@ -68,6 +68,22 @@ ccrcc_annot <- ccrcc_annot[tmp,]
 rna <- rna[tmp,]
 rownames(rna) <- ccrcc_annot[,3]
 
+thor <- read.delim('pancan_immune_subtypes.csv',sep = ',')
+thor$Sample.ID <- gsub('\\.','-',thor$Sample.ID)
+thor$Sample.ID <- gsub('-A','-N',thor$Sample.ID)
+all(tmp %in% thor$Sample.ID) #T
+anyDuplicated(thor$Sample.ID) #0
+rownames(thor) <- thor$Sample.ID
+thor <- thor[tmp,]
+rownames(thor) <- ccrcc_annot[,3]
+thor <- thor[,-1]
+thor$Immune.Subtype[thor$Immune.Subtype==1] <- "C1-WoundHealing"
+thor$Immune.Subtype[thor$Immune.Subtype==2] <- "C2-IFNGammaDominant"
+thor$Immune.Subtype[thor$Immune.Subtype==3] <- "C3-Inflammatory"
+thor$Immune.Subtype[thor$Immune.Subtype==4] <- "C4-LymphocyteDepleted"
+thor$Immune.Subtype[thor$Immune.Subtype==5] <- "C5-ImmunologicallyQuiet"
+thor$Immune.Subtype[thor$Immune.Subtype==6] <- "C6-TGFBetaDominant"
+
 tmp <- intersect(rownames(rna),rownames(prot))
 rna <- rna[tmp,]
 prot <- prot[tmp,]
@@ -90,16 +106,46 @@ annot <- rownames(tab_rna[order(tab_rna[,2],tab_rna[,1]),])
 tab_rna <- tab_rna[annot,]
 mat_rna <- mat_rna[,annot]
 
+all(annot %in% rownames(thor))#T
+thor <- thor[annot,]
+
 set.seed(10)
-ha = HeatmapAnnotation(Subtype = tab_rna$Subtype, Tissue = tab_rna$Tissue)
+ha = HeatmapAnnotation(Subtype = tab_rna$Subtype, Tissue = tab_rna$Tissue,ISC=thor$Immune.Subtype,
+                       col = list(Tissue = c("Normal" = "darkgrey", "Tumor" = "darkred"),ISC=c('C1-WoundHealing'='red','C2-IFNGammaDominant'='yellow','C3-Inflammatory'='green3','C4-LymphocyteDepleted'='cyan','C5-ImmunologicallyQuiet'='blue','C6-TGFBetaDominant'='magenta')))
 
 lev <- c("Infiltrated NAT","Pure NAT","CD8- Inflamed","CD8+ Inflamed","Metabolic Immune-desert","VEGF Immune-desert")
 
+tmp <- read.delim(paste0(toupper(b),'_fpkm_rna.txt'),check.names = F)
+colnames(tmp) <- gsub('\\.','-',colnames(tmp))
+rownames(tmp) <- tmp$gene; tmp <- tmp[-1]
+tmp2 <- sapply(strsplit(colnames(tmp),'-RNA-Seq'), function(x) x[1])
+tmp3 <- sapply(strsplit(colnames(tmp),'-'), function(x) x[5])
+tmp3 <- ifelse(tmp3=='T','-T','-N')
+tmp2 <- paste0(tmp2,tmp3)
+colnames(tmp) <- tmp2
+
+tmp3 <- intersect(colnames(tmp),rownames(ccrcc_annot))
+ccrcc_annot <- ccrcc_annot[tmp3,]
+tmp <- tmp[,tmp3]
+colnames(tmp) <- ccrcc_annot[,3]
+all(colnames(mat_rna) %in% colnames(tmp)) #TRUE
+tmp <- tmp[,colnames(mat_rna)]
+
+marker <- c('CD19','MS4A1','SLAMF7','CD8A','CD8B','FCER1A','CD14','ITGAM','NCR1','NKG7')
+names(marker) <- paste0(marker,' (',c('B','B','B plasma','T8','T8','DC','Monoc./Macrop.','Macrop.','NK','NK'),')')
+tmp2 <- tmp[intersect(marker,rownames(tmp)),]
+rownames(tmp2) <- names(marker[marker %in% rownames(tmp2)])
+
+tmp2 <- t(scale(t(tmp2)))
+
+rna2 <- rbind(mat_rna,tmp2)
+
 pdf(paste0("Heatmap_",b,"_RNA_sc3PBMC.pdf"), width = 20, height = 8)
-ht <- Heatmap(mat_rna,name = 'Z-score',top_annotation = ha,column_names_gp = gpar(fontsize = 4),
+ht <- Heatmap(rna2,name = 'Z-score',top_annotation = ha,column_names_gp = gpar(fontsize = 4),
               column_names_rot = 45,cluster_rows = F,cluster_columns = F, 
-              column_split = factor(tab_rna[,1],levels = lev),
-              column_title_gp = gpar(fontsize = 10),column_gap = unit(3, "mm"),border = TRUE)
+              column_split = factor(tab_rna[,1],levels = lev), split = c(rep("A", nrow(mat_rna)),rep("B", nrow(tmp2))),
+              column_title_gp = gpar(fontsize = 10),column_gap = unit(3, "mm"),border = TRUE,
+              row_title = NULL,row_gap = unit(3, "mm"))
 draw(ht, padding = unit(c(2, 8, 2, 2), "mm")) 
 dev.off()
 
@@ -113,11 +159,28 @@ mat_prot[is.na(mat_prot)] <- 0
 tab_prot <- tab_prot[annot,]
 mat_prot <- mat_prot[,annot]
 
+tmp <- read.delim(paste0(toupper(b),'_imputed.txt'),check.names = F)
+rownames(tmp) <- tmp$gene; tmp <- tmp[-1]
+all(colnames(mat_prot) %in% colnames(tmp)) #TRUE
+tmp <- tmp[,colnames(mat_prot)]
+
+tmp2 <- tmp[intersect(marker,rownames(tmp)),]
+rownames(tmp2) <- names(marker[marker %in% rownames(tmp2)])
+
+tmp2 <- t(scale(t(tmp2)))
+
+prot2 <- rbind(mat_prot,tmp2)
+
+set.seed(10)
+ha = HeatmapAnnotation(Subtype = tab_rna$Subtype, Tissue = tab_rna$Tissue,
+                       col = list(Tissue = c("Normal" = "darkgrey", "Tumor" = "darkred")))
+
 pdf(paste0("Heatmap_",b,"_protein-imputed-LM7c.pdf"), width = 20, height = 8)
-ht <- Heatmap(mat_prot,name = 'Z-score',top_annotation = ha,column_names_gp = gpar(fontsize = 4),
+ht <- Heatmap(prot2,name = 'Z-score',top_annotation = ha,column_names_gp = gpar(fontsize = 4),
               column_names_rot = 45,cluster_rows = F,cluster_columns = F, 
-              column_split = factor(tab_prot[,1],levels = lev),
-              column_title_gp = gpar(fontsize = 10),column_gap = unit(3, "mm"),border = TRUE)
+              column_split = factor(tab_rna[,1],levels = lev), split = c(rep("A", nrow(mat_prot)),rep("B", nrow(tmp2))),
+              column_title_gp = gpar(fontsize = 10),column_gap = unit(3, "mm"),border = TRUE,
+              row_title = NULL,row_gap = unit(3, "mm"))
 draw(ht, padding = unit(c(2, 8, 2, 2), "mm")) 
 dev.off()
 
@@ -258,6 +321,7 @@ prot <- tmp
 # save(t,tab,file = 'luad_annot.RData')
 load('luad_annot.RData')
 
+tab <- as.data.frame(tab)
 t <- as.data.frame(t)
 tmp <- intersect(t$Aliquot,rownames(prot))
 t <- t[t$Aliquot %in% tmp,]
@@ -272,9 +336,25 @@ prot <- prot[tmp,]
 library(ComplexHeatmap)
 com <- intersect(tab$`Sample ID`,tmp)
 tab <- tab[tab$`Sample ID` %in% com,]
+rownames(tab) <- tab$`Sample ID`
 tab <- cbind(tab,Type=ifelse(grepl('.N$',tab$`Sample ID`),'NAT','Tumor'))
 tab_rna <- cbind(tab[,c(2,3)],rna[com,])
 tab_prot <- cbind(tab[,c(2,3)],prot[com,])
+
+thor <- read.delim('pancan_immune_subtypes.csv',sep = ',')
+thor$Sample.ID <- gsub('.A','.N',thor$Sample.ID)
+thor$Sample.ID <- gsub('.T','',thor$Sample.ID)
+setdiff(com,thor$Sample.ID)
+anyDuplicated(thor$Sample.ID) #0
+rownames(thor) <- thor$Sample.ID
+thor <- thor[tmp,]
+thor <- thor[,-1]
+thor$Immune.Subtype[thor$Immune.Subtype==1] <- "C1-WoundHealing"
+thor$Immune.Subtype[thor$Immune.Subtype==2] <- "C2-IFNGammaDominant"
+thor$Immune.Subtype[thor$Immune.Subtype==3] <- "C3-Inflammatory"
+thor$Immune.Subtype[thor$Immune.Subtype==4] <- "C4-LymphocyteDepleted"
+thor$Immune.Subtype[thor$Immune.Subtype==5] <- "C5-ImmunologicallyQuiet"
+thor$Immune.Subtype[thor$Immune.Subtype==6] <- "C6-TGFBetaDominant"
 
 ## heatmap rna
 mat_rna <- t(tab_rna[,3:ncol(tab_rna)])
@@ -288,18 +368,43 @@ annot <- rownames(tab_rna[order(tab_rna[,2],tab_rna[,1]),])
 tab_rna <- tab_rna[annot,]
 mat_rna <- mat_rna[,annot]
 
-ha = HeatmapAnnotation(Subtype = tab_rna[,1], Tissue = tab_rna[,2],
+setdiff(annot,rownames(thor))
+thor <- thor[annot,]
+
+ha = HeatmapAnnotation(Subtype = tab_rna[,1], Tissue = tab_rna[,2],ISC=thor$Immune.Subtype,
                     col = list(Subtype = c('NAT enriched' = "antiquewhite4", 'Cold-tumor enriched' = "darkorchid", 'Hot-tumor enriched' = "coral"),
-                               Tissue = c("NAT" = "green3", "Tumor" = "black")))
+                               Tissue = c("NAT" = "darkgrey", "Tumor" = "darkred"),ISC=c('C1-WoundHealing'='red','C2-IFNGammaDominant'='yellow','C3-Inflammatory'='green3','C4-LymphocyteDepleted'='cyan','C5-ImmunologicallyQuiet'='blue','C6-TGFBetaDominant'='magenta')))
+
 lev <- c('NAT enriched','Cold-tumor enriched','Hot-tumor enriched')
 
+tmp <- read.delim(paste0(toupper(b),'_fpkm_rna.txt'),check.names = F)
+rownames(tmp) <- tmp$gene; tmp <- tmp[-1]
+tmp2 <- gsub('.RNA.Seq|.hg38','',colnames(tmp))
+tmp2 <- gsub('.T','',tmp2)
+tmp2 <- gsub('.A','.N',tmp2)
+colnames(tmp) <- tmp2
+
+all(colnames(mat_rna) %in% colnames(tmp)) #TRUE
+tmp <- tmp[,colnames(mat_rna)]
+
+marker <- c('CD19','MS4A1','SLAMF7','CD8A','CD8B','FCER1A','CD14','ITGAM','NCR1','NKG7')
+names(marker) <- paste0(marker,' (',c('B','B','B plasma','T8','T8','DC','Monoc./Macrop.','Macrop.','NK','NK'),')')
+tmp2 <- tmp[intersect(marker,rownames(tmp)),]
+rownames(tmp2) <- names(marker[marker %in% rownames(tmp2)])
+
+tmp2 <- t(scale(t(tmp2)))
+
+rna2 <- rbind(mat_rna,tmp2)
+
 pdf(paste0("Heatmap_",b,"_RNA_sc3PBMC.pdf"), width = 20, height = 8)
-ht <- Heatmap(mat_rna,name = 'Z-score',top_annotation = ha,column_names_gp = gpar(fontsize = 4),
+ht <- Heatmap(rna2,name = 'Z-score',top_annotation = ha,column_names_gp = gpar(fontsize = 4),
               column_names_rot = 45,cluster_rows = F,cluster_columns = F, 
-              column_split = factor(tab_rna[,1],levels = lev),
-              column_title_gp = gpar(fontsize = 10),column_gap = unit(3, "mm"),border = TRUE)
+              column_split = factor(tab_rna[,1],levels = lev), split = c(rep("A", nrow(mat_rna)),rep("B", nrow(tmp2))),
+              column_title_gp = gpar(fontsize = 10),column_gap = unit(3, "mm"),border = TRUE,
+              row_title = NULL,row_gap = unit(3, "mm"))
 draw(ht, padding = unit(c(2, 8, 2, 2), "mm")) 
 dev.off()
+
 
 ## heatmap protein
 mat_prot <- t(tab_prot[,3:ncol(tab_prot)])
@@ -311,11 +416,37 @@ mat_prot[is.na(mat_prot)] <- 0
 tab_prot <- tab_prot[annot,]
 mat_prot <- mat_prot[,annot]
 
+tmp <- read.delim(paste0(toupper(b),'_imputed.txt'),check.names = F)
+rownames(tmp) <- tmp$gene; tmp <- tmp[-1]
+
+load('luad_annot.RData')
+t <- as.data.frame(t)
+tmp2 <- intersect(t$Aliquot,colnames(tmp))
+t <- t[t$Aliquot %in% tmp2,]
+
+tmp <- tmp[,tmp2]
+colnames(tmp) <- t$Sample.ID
+
+all(colnames(mat_prot) %in% colnames(tmp)) #TRUE
+tmp <- tmp[,colnames(mat_prot)]
+
+tmp2 <- tmp[intersect(marker,rownames(tmp)),]
+rownames(tmp2) <- names(marker[marker %in% rownames(tmp2)])
+
+tmp2 <- t(scale(t(tmp2)))
+
+prot2 <- rbind(mat_prot,tmp2)
+
+ha = HeatmapAnnotation(Subtype = tab_rna[,1], Tissue = tab_rna[,2],
+                    col = list(Subtype = c('NAT enriched' = "antiquewhite4", 'Cold-tumor enriched' = "darkorchid", 'Hot-tumor enriched' = "coral"),
+                               Tissue = c("NAT" = "darkgrey", "Tumor" = "darkred")))
+
 pdf(paste0("Heatmap_",b,"_protein-imputed-LM7c.pdf"), width = 20, height = 8)
-ht <- Heatmap(mat_prot,name = 'Z-score',top_annotation = ha,column_names_gp = gpar(fontsize = 4),
+ht <- Heatmap(prot2,name = 'Z-score',top_annotation = ha,column_names_gp = gpar(fontsize = 4),
               column_names_rot = 45,cluster_rows = F,cluster_columns = F, 
-              column_split = factor(tab_prot[,1],levels = lev),
-              column_title_gp = gpar(fontsize = 10),column_gap = unit(3, "mm"),border = TRUE)
+              column_split = factor(tab_rna[,1],levels = lev), split = c(rep("A", nrow(mat_prot)),rep("B", nrow(tmp2))),
+              column_title_gp = gpar(fontsize = 10),column_gap = unit(3, "mm"),border = TRUE,
+              row_title = NULL,row_gap = unit(3, "mm"))
 draw(ht, padding = unit(c(2, 8, 2, 2), "mm")) 
 dev.off()
 
