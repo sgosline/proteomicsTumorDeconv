@@ -9,6 +9,8 @@ import pandas as pd
 import argparse
 
 # Euclidean distances
+
+
 def ed(a, b):
     if len(a) != len(b):
         print("The two arrays are not same size!")
@@ -35,7 +37,7 @@ def ks(a, b):
     if len(a) != len(b):
         print("The two arrays are not same size!")
     if np.sum(a) == 0 or np.sum(b) == 0:
-        return(np.nan)     
+        return(np.nan)
     a /= np.sum(a)
     b /= np.sum(b)
     dist = np.amax(np.abs(np.cumsum(a) - np.cumsum(b)))
@@ -50,8 +52,6 @@ def main():
                         help='Deconvoluted matrix B')
     parser.add_argument('--method', dest='method', help='Use "ed" (Euclidean distance), "js" (Jensen-Shannon divergence), or "ks" (Kolmogorov-Smirnov distance)',
                         default='js')
-    # parser.add_argument('--output', dest='output',
-    #                     help='Output file for the correlation values')
     opts = parser.parse_args()
 
     A = pd.read_csv(opts.matrixA, sep='\t', index_col=0)

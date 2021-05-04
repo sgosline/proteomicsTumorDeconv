@@ -15,19 +15,10 @@ requirements:
    - class: MultipleInputFeatureRequirement
 
 inputs:
-   metricType:
-     type: string
-     inputBinding:
-       position: 1
-   metric:
-     type: string
-     default: "correlation"
-     inputBinding:
-       position: 2
    files:
      type:  File[]
      inputBinding:
-        position: 3
+        position: 1
 
 outputs:
    table:

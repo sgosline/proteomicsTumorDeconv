@@ -15,39 +15,30 @@ requirements:
   - class: InlineJavascriptRequirement
   
 inputs:
-  transcriptomics:
+  matrixA:
     type: File
     inputBinding:
-      prefix: --transcriptomics
-  proteomics:
+      prefix: --matrixA
+  matrixB:
     type: File
     inputBinding:
-      prefix: --proteomics
-  mrnaAlg:
-    type: string
-  protAlg:
-    type: string
-  cancerType:
-    type: string
-  spearOrPears:
+      prefix: --matrixB
+  method:
     type: string
     inputBinding:
-      prefix: --spearOrPears
+      prefix: --method
     default: "spearman"
-  signature:
-    type: File
-  sampleType:
-    type: string
 
 outputs:
   corr:
     type: File
     outputBinding:
-      glob: "corrXcelltypes.tsv" #$(inputs.output)
+      glob: "cellTypeCorr.tsv" #$(inputs.output)
       outputEval: |
         ${
-          var mat = inputs.signature.nameroot
-          var name = inputs.sampleType + '-' + inputs.cancerType + '-' + inputs.mrnaAlg + '-to-' + inputs.protAlg +'-'+ mat + '-cellTypecorr.tsv'
+          var aName = inputs.matrixA.nameroot
+          var bName = inputs.matrixB.nameroot
+          var name = aName + '-vs-' + bName + '-' + inputs.method + '-cellTypeCorr.tsv'
           self[0].basename = name;
           return self[0]
          }

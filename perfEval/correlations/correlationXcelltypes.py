@@ -6,14 +6,12 @@ import argparse
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--transcriptomics', dest='rnafile',
-                        help='Deconvoluted matrix of transcriptomics data')
-    parser.add_argument('--proteomics', dest='profile',
-                        help='Deconvoluted matrix of proteomics data')
-    parser.add_argument('--spearOrPears', dest='sop', help='Use spearman or pearson correlation',
-                        default='pearson')
-    # parser.add_argument('--output', dest='output',
-    #                     help='Output file for the correlation values')
+    parser.add_argument('--matrixA', dest='matrixA',
+                        help='Deconvoluted matrix A')
+    parser.add_argument('--matrixB', dest='matrixB',
+                        help='Deconvoluted matrix B')
+    parser.add_argument('--method', dest='method', help='Use spearman or pearson correlation',
+                        default='spearman')
     opts = parser.parse_args()
 
     rna = pd.read_csv(opts.rnafile, sep='\t', index_col=0)
@@ -32,7 +30,7 @@ def main():
     rna = rna.transpose()
     pro = pro.transpose()
 
-    if opts.sop == 'pearson':
+    if opts.method == 'pearson':
         corrList = [pro[sample].corr(rna[sample]) for sample in intersectRows]
     else:
         corrList = [pro[sample].corr(rna[sample], method='spearman')
@@ -40,7 +38,7 @@ def main():
 
     correlations = pd.Series(corrList)
     correlations.index = intersectRows
-    correlations.to_csv("corrXcelltypes.tsv", sep='\t', header=False)
+    correlations.to_csv("cellTypeCorr.tsv", sep='\t', header=False)
 
 
 if __name__ == '__main__':

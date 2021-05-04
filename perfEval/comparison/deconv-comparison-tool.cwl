@@ -29,16 +29,6 @@ inputs:
     inputBinding:
       prefix: --method
     default: "js"
-  cancerType:
-    type: string
-  aAlg:
-    type: string
-  bAlg:
-    type: string
-  signature:
-    type: File
-  sampleType:
-    type: string
 
 outputs:
   dist:
@@ -47,8 +37,9 @@ outputs:
       glob: "dist.tsv" 
       outputEval: |
         ${
-          var mat = inputs.signature.nameroot
-          var name = inputs.sampleType + '-' + inputs.cancerType + '-' + inputs.aAlg + '-to-' + inputs.bAlg +'-'+ mat + '-dist.tsv'
+          var aName = inputs.matrixA.nameroot
+          var bName = inputs.matrixB.nameroot
+          var name = aName + '-vs-' + bName + '-' + inputs.method + '-dist.tsv'
           self[0].basename = name;
           return self[0]
          }
